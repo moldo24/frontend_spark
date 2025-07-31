@@ -1,25 +1,29 @@
-import logo from './logo.svg';
-import './App.css';
+// src/App.jsx
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Home from "./pages/Home.jsx";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
+import OAuth2RedirectHandler from "./pages/OAuth2RedirectHandler.jsx";
+import PrivateRoute from "./components/PrivateRoute.jsx";
 
-function App() {
+export default function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Works!
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
+        <Route
+          path="/dashboard"
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
-
-export default App;
