@@ -1,8 +1,7 @@
-// src/components/ProfileImageUploader.jsx
 import { useState, useEffect } from "react";
-import { fetchWithAuth } from "../utils/auth.js";
-import { API_BASE } from "../config.js";
 import Avatar from "./Avatar.jsx";
+import { fetchWithAuth } from "../utils/auth.js";
+import { AUTH } from "../config.js";
 
 export default function ProfileImageUploader({ currentUrl, onUpdate, size = 64, name }) {
   const [localFile, setLocalFile] = useState(null);
@@ -10,20 +9,22 @@ export default function ProfileImageUploader({ currentUrl, onUpdate, size = 64, 
   const [error, setError] = useState(null);
   const [remoteUrl, setRemoteUrl] = useState(currentUrl);
 
-  // sync remoteUrl when parent updates, but don’t override while editing a local file
   useEffect(() => {
     if (!localFile) {
       setRemoteUrl(currentUrl);
     }
   }, [currentUrl, localFile]);
 
-  // create object URL for the selected file
+  // object URL for preview when selecting new file
   const [objectUrl, setObjectUrl] = useState(null);
   useEffect(() => {
     if (localFile) {
       const url = URL.createObjectURL(localFile);
       setObjectUrl(url);
-      return () => URL.revokeObjectURL(url);
+      return () => {
+        URL.revokeObjectURL(url);
+        setObjectUrl(null);
+      };
     } else {
       setObjectUrl(null);
     }
@@ -32,9 +33,7 @@ export default function ProfileImageUploader({ currentUrl, onUpdate, size = 64, 
   const preview = objectUrl
     ? objectUrl
     : remoteUrl
-    ? remoteUrl.startsWith("http")
-      ? remoteUrl
-      : `${API_BASE}${remoteUrl}`
+    ? remoteUrl
     : "/default-avatar.png";
 
   const handleFile = async (e) => {
@@ -54,15 +53,17 @@ export default function ProfileImageUploader({ currentUrl, onUpdate, size = 64, 
     try {
       const form = new FormData();
       form.append("image", file);
-      const res = await fetchWithAuth(`${API_BASE}/auth/me/image`, {
+      const res = await fetchWithAuth(AUTH.UPLOAD_IMAGE, {
         method: "POST",
         body: form,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Upload failed");
+      }
       const body = await res.json();
       onUpdate && onUpdate(body.imageUrl);
-      // clear localFile so the new remoteUrl (saved path) is used
-      setLocalFile(null);
+      setLocalFile(null); // clear local to reflect stored version
     } catch (err) {
       setError(err.message);
     } finally {
@@ -71,24 +72,35 @@ export default function ProfileImageUploader({ currentUrl, onUpdate, size = 64, 
   };
 
   return (
-    <div className="profile-uploader" style={{ marginBottom: 16 }}>
+    <div className="profile-uploader" style={{ marginBottom: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <Avatar imageUrl={preview} size={size} alt={name || "avatar"} />
-        <div>
-          <label style={{ cursor: "pointer", display: "inline-block" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label
+            style={{
+              cursor: "pointer",
+              padding: "6px 12px",
+              borderRadius: 6,
+              background: "#eef2fd",
+              fontSize: 14,
+              display: "inline-block",
+              fontWeight: 600,
+            }}
+          >
             Change image
             <input
               type="file"
               accept="image/png,image/jpeg"
               onChange={handleFile}
               style={{ display: "none" }}
+              disabled={uploading}
             />
           </label>
-          {uploading && <div style={{ fontSize: 12 }}>Uploading...</div>}
+          {uploading && (
+            <div style={{ fontSize: 12, color: "#555" }}>Uploading...</div>
+          )}
           {error && (
-            <div style={{ color: "red", fontSize: 12, marginTop: 4 }}>
-              {error}
-            </div>
+            <div style={{ color: "crimson", fontSize: 12 }}>{error}</div>
           )}
         </div>
       </div>

@@ -3,12 +3,14 @@ const TOKEN_KEY = "jwt_token";
 
 export function setToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
+  window.dispatchEvent(new Event("authChange"));
 }
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 export function logout() {
   localStorage.removeItem(TOKEN_KEY);
+  window.dispatchEvent(new Event("authChange"));
 }
 
 function parseJwt(token) {
@@ -26,8 +28,16 @@ export function isAuthenticated() {
   if (!token) return false;
   const data = parseJwt(token);
   if (!data || !data.exp) return false;
-  // exp is in seconds
   return Date.now() / 1000 < data.exp;
+}
+
+/**
+ * Convenience: returns decoded JWT payload or null.
+ */
+export function getJwtPayload() {
+  const token = getToken();
+  if (!token) return null;
+  return parseJwt(token);
 }
 
 export async function fetchWithAuth(url, opts = {}) {
