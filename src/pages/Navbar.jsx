@@ -99,20 +99,33 @@ export default function Navbar() {
                 Admin
               </Link>
             )}
+            {user?.role === "USER" && (
+  <Link
+    to="/request-brand"
+    style={{
+      textDecoration: "none",
+      color: "#6366f1",
+      fontWeight: 600,
+      fontSize: 14,
+    }}
+  >
+    Request Brand
+  </Link>
+)}
+
             <Link
-              to="/dashboard"
-              style={{
+            to="/profile"
+            style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
                 textDecoration: "none",
                 color: "#1f2d3a",
-              }}
+            }}
+            
             >
-              <Avatar imageUrl={user.imageUrl} size={32} alt={user.name} />
-              <span style={{ fontSize: 14, fontWeight: 600 }}>
-                {user.name}
-              </span>
+            <Avatar imageUrl={user.imageUrl} size={32} alt={user.name} />
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{user.name}</span>
             </Link>
             <button
               type="button"

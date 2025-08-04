@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { fetchWithAuth, logout } from "../utils/auth.js";
-import { API_BASE } from "../config.js";
+import { API_BASE, STORE_API_BASE } from "../config.js";
 import { useNavigate } from "react-router-dom";
 import UserForm from "../components/admin/UserForm.jsx";
 import UserRow from "../components/admin/UserRow.jsx";
@@ -15,6 +15,34 @@ const matchUser = (user, query) => {
     user.email?.toLowerCase().includes(q) ||
     user.role?.toLowerCase().includes(q) ||
     user.provider?.toLowerCase().includes(q)
+  );
+};
+
+/**
+ * Given raw users from the user management service, fetch brand summary for BRAND_SELLERs.
+ * Attaches `brand` property (or null) to each user.
+ */
+const enrichWithBrand = async (users) => {
+  return await Promise.all(
+    users.map(async (u) => {
+      if (u.role !== "BRAND_SELLER") return u;
+      try {
+        const res = await fetchWithAuth(`${STORE_API_BASE}/public/users/${u.id}/brand`);
+        if (res.status === 404) {
+          return { ...u, brand: null };
+        }
+        if (res.status === 204) {
+          return { ...u, brand: null };
+        }
+        if (!res.ok) {
+          return { ...u, brandFetchError: true };
+        }
+        const brand = await res.json();
+        return { ...u, brand };
+      } catch (e) {
+        return { ...u, brandFetchError: true };
+      }
+    })
   );
 };
 
@@ -44,7 +72,8 @@ export default function AdminUsers() {
         return;
       }
       const list = await res.json();
-      setUsers(list);
+      const enriched = await enrichWithBrand(list);
+      setUsers(enriched);
     } catch (e) {
       setGlobalError(e.message);
     } finally {
@@ -141,9 +170,7 @@ export default function AdminUsers() {
           <div className="loading">Loading users...</div>
         ) : (
           <>
-            {filteredUsers.length === 0 && (
-              <div className="no-results">No users match your search.</div>
-            )}
+            {filteredUsers.length === 0 && <div className="no-results">No users match your search.</div>}
             <table className="users-table">
               <thead>
                 <tr>

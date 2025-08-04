@@ -1,8 +1,9 @@
-// src/components/admin/UserForm.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { fetchWithAuth } from "../../utils/auth.js";
+import { BRAND } from "../../config.js";
 
 const emailRegex = /^\S+@\S+\.\S+$/;
-const roles = ["USER", "ADMIN"];
+const roles = ["USER", "ADMIN", "BRAND_SELLER"];
 const providers = ["LOCAL", "GOOGLE", "GITHUB"];
 
 const DEFAULT_INITIAL = {
@@ -13,9 +14,11 @@ const DEFAULT_INITIAL = {
   providerId: "",
   role: "USER",
   emailVerified: false,
+  brandId: "",
+  brand: null,
 };
 
-function validate({ name, email, password, provider, providerId }, isNew) {
+function validate({ name, email, password, provider, providerId, role }, isNew) {
   const errors = {};
   if (!name || !name.trim()) errors.name = "Name is required";
   else if (name.trim().length < 2) errors.name = "Name must be at least 2 characters";
@@ -35,6 +38,7 @@ function validate({ name, email, password, provider, providerId }, isNew) {
       errors.providerId = "Provider ID required for OAuth user";
     }
   }
+
   return errors;
 }
 
@@ -46,13 +50,31 @@ export default function UserForm({
   submitting,
 }) {
   const effectiveInitial = initial ?? DEFAULT_INITIAL;
-  const [form, setForm] = useState(() => ({ ...effectiveInitial }));
+  const [form, setForm] = useState(() => ({
+    ...DEFAULT_INITIAL,
+    ...effectiveInitial,
+    brandId: effectiveInitial.brand?.id ?? effectiveInitial.brandId ?? "",
+    brand: effectiveInitial.brand ?? null,
+  }));
   const [errors, setErrors] = useState({});
 
-  // Only reset when the actual initial fields change (not on every render)
+  // brand search state
+  const [brandQuery, setBrandQuery] = useState("");
+  const [brandSuggestions, setBrandSuggestions] = useState([]);
+  const [brandLoading, setBrandLoading] = useState(false);
+  const debounceRef = useRef(null);
+
+  // reset when initial changes
   useEffect(() => {
-    setForm({ ...effectiveInitial });
+    setForm({
+      ...DEFAULT_INITIAL,
+      ...effectiveInitial,
+      brandId: effectiveInitial.brand?.id ?? effectiveInitial.brandId ?? "",
+      brand: effectiveInitial.brand ?? null,
+    });
     setErrors({});
+    setBrandQuery("");
+    setBrandSuggestions([]);
   }, [
     effectiveInitial.name,
     effectiveInitial.email,
@@ -60,7 +82,47 @@ export default function UserForm({
     effectiveInitial.providerId,
     effectiveInitial.role,
     effectiveInitial.emailVerified,
+    effectiveInitial.brandId,
+    effectiveInitial.brand,
   ]);
+
+  // brand search effect (only when role is BRAND_SELLER)
+  useEffect(() => {
+    if (form.role !== "BRAND_SELLER") return;
+    if (!brandQuery || brandQuery.trim() === "") {
+      setBrandSuggestions([]);
+      return;
+    }
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setBrandLoading(true);
+      try {
+        const res = await fetchWithAuth(`${BRAND.LIST}?q=${encodeURIComponent(brandQuery)}`);
+        if (res.ok) {
+          const list = await res.json();
+          setBrandSuggestions(list.slice(0, 10));
+        } else {
+          setBrandSuggestions([]);
+        }
+      } catch (e) {
+        setBrandSuggestions([]);
+      } finally {
+        setBrandLoading(false);
+      }
+    }, 300);
+  }, [brandQuery, form.role]);
+
+  const selectBrand = (b) => {
+    setForm((f) => ({ ...f, brandId: b.id, brand: b }));
+    setBrandSuggestions([]);
+    setBrandQuery("");
+  };
+
+  const clearBrand = () => {
+    setForm((f) => ({ ...f, brandId: "", brand: null }));
+    setBrandQuery("");
+    setBrandSuggestions([]);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -69,7 +131,17 @@ export default function UserForm({
       setErrors(validation);
       return;
     }
-    await onSubmit(form);
+    // normalize payload: include brandId when appropriate
+    await onSubmit({
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      provider: form.provider,
+      providerId: form.provider === "LOCAL" ? null : form.providerId,
+      password: form.provider === "LOCAL" ? form.password : null,
+      role: form.role,
+      emailVerified: form.emailVerified,
+      brandId: form.role === "BRAND_SELLER" ? form.brandId || null : undefined,
+    });
   };
 
   return (
@@ -84,6 +156,7 @@ export default function UserForm({
           />
           {errors.name && <div className="field-error">{errors.name}</div>}
         </div>
+
         <div className="field">
           <label>Email</label>
           <input
@@ -93,6 +166,7 @@ export default function UserForm({
           />
           {errors.email && <div className="field-error">{errors.email}</div>}
         </div>
+
         <div className="field">
           <label>Provider</label>
           <select
@@ -114,6 +188,7 @@ export default function UserForm({
             ))}
           </select>
         </div>
+
         {form.provider === "LOCAL" && (
           <div className="field">
             <label>{isNew ? "Password" : "New Password (optional)"}</label>
@@ -126,6 +201,7 @@ export default function UserForm({
             {errors.password && <div className="field-error">{errors.password}</div>}
           </div>
         )}
+
         {form.provider !== "LOCAL" && (
           <div className="field">
             <label>Provider ID</label>
@@ -137,6 +213,7 @@ export default function UserForm({
             {errors.providerId && <div className="field-error">{errors.providerId}</div>}
           </div>
         )}
+
         <div className="field">
           <label>Role</label>
           <select
@@ -146,11 +223,75 @@ export default function UserForm({
           >
             {roles.map((r) => (
               <option key={r} value={r}>
-                {r}
+                {r.replace("_", " ")}
               </option>
             ))}
           </select>
         </div>
+
+        {form.role === "BRAND_SELLER" && (
+          <div className="field">
+            <label>Brand (optional)</label>
+            <div className="brand-autocomplete">
+              {form.brand ? (
+                <div className="selected-brand">
+                  <span>{form.brand.name}</span>
+                  <button
+                    type="button"
+                    onClick={clearBrand}
+                    disabled={submitting}
+                    aria-label="Clear"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    placeholder="Search brands..."
+                    value={brandQuery}
+                    onChange={(e) => setBrandQuery(e.target.value)}
+                    disabled={submitting}
+                    autoComplete="off"
+                  />
+                  {brandLoading && <div className="loader-inline">…</div>}
+                  {brandSuggestions.length > 0 && (
+                    <ul className="suggestions">
+                      {brandSuggestions.map((b) => (
+                        <li
+                          key={b.id}
+                          onClick={() => selectBrand(b)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          {b.name} ({b.slug})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="note" style={{ fontSize: "0.75rem", marginTop: 4 }}>
+                    You can also paste a brand ID manually.
+                  </div>
+                  <input
+                    type="hidden"
+                    value={form.brandId || ""}
+                    readOnly
+                  />
+                </>
+              )}
+            </div>
+            {!form.brand && (
+              <div className="manual-brand-input" style={{ marginTop: 4 }}>
+                <input
+                  placeholder="Or paste brand ID"
+                  value={form.brandId}
+                  onChange={(e) => setForm((f) => ({ ...f, brandId: e.target.value }))}
+                  disabled={submitting}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="field email-verified">
           <label>Email Verified</label>
           <div className="checkbox-wrap">
@@ -164,6 +305,7 @@ export default function UserForm({
           </div>
         </div>
       </div>
+
       <div className="form-actions">
         <button type="submit" className="btn btn-primary" disabled={submitting}>
           {isNew ? (submitting ? "Creating..." : "Create user") : submitting ? "Saving..." : "Save"}

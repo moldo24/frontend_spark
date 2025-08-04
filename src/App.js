@@ -9,7 +9,8 @@ import PrivateRoute from "./components/PrivateRoute.jsx";
 import AdminRoute from "./components/AdminRoute.jsx";
 import Navbar from "./pages/Navbar.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
-
+import MyProfile from "./pages/MyProfile.jsx"; // ✅ Add this
+import BrandRequestPage from "./pages/BrandRequestPage.jsx"; // make sure this is imported
 export default function App() {
   return (
     <Router>
@@ -28,6 +29,15 @@ export default function App() {
           }
         />
         <Route
+  path="/profile"
+  element={
+    <PrivateRoute>
+      <MyProfile />
+    </PrivateRoute>
+  }
+/>
+
+        <Route
           path="/admin"
           element={
             <AdminRoute>
@@ -35,7 +45,17 @@ export default function App() {
             </AdminRoute>
           }
         />
+              <Route
+  path="/request-brand"
+  element={
+    <PrivateRoute>
+      <BrandRequestPage />
+    </PrivateRoute>
+  }
+/>
       </Routes>
+
     </Router>
+    
   );
 }
