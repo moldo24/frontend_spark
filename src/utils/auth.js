@@ -10,8 +10,14 @@ export function getToken() {
 }
 export function logout() {
   localStorage.removeItem(TOKEN_KEY);
+
+  // clear cart (works with your array-based cart)
+  localStorage.setItem("cart", "[]");
+  window.dispatchEvent(new CustomEvent("cartChange"));
+
   window.dispatchEvent(new Event("authChange"));
 }
+
 
 function parseJwt(token) {
   try {

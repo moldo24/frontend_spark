@@ -1,5 +1,4 @@
 // src/config.js
-
 export const USER_API_BASE = process.env.REACT_APP_USER_API_BASE || "http://localhost:8080";
 export const STORE_API_BASE = process.env.REACT_APP_STORE_API_BASE || "http://localhost:8081";
 
@@ -27,4 +26,16 @@ export const BRAND = {
     }
     return `${STORE_API_BASE}/brands`;
   },
+};
+
+export const BRAND_REQUESTS = {
+  LIST: (status = "") =>
+    status && status.trim()
+      ? `${STORE_API_BASE}/brands/requests?status=${encodeURIComponent(status.trim())}`
+      : `${STORE_API_BASE}/brands/requests`,
+  APPROVE: (id) => `${STORE_API_BASE}/brands/requests/${id}/approve`,
+  REJECT:  (id) => `${STORE_API_BASE}/brands/requests/${id}/reject`,
+  MINE:    () => `${STORE_API_BASE}/brands/requests/mine`,
+  LOGO_PUT: (id) => `${STORE_API_BASE}/brands/requests/${id}/logo`,
+  LOGO_GET: (id) => `${STORE_API_BASE}/brands/requests/${id}/logo`,
 };

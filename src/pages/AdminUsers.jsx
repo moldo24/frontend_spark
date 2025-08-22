@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import UserForm from "../components/admin/UserForm.jsx";
 import UserRow from "../components/admin/UserRow.jsx";
 import SearchBar from "../components/admin/SearchBar.jsx";
+import "../css/pages/brand-request.css";
 import "../css/pages/admin-users.css";
 
 const matchUser = (user, query) => {
