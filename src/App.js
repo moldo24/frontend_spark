@@ -17,35 +17,35 @@ import ProductCreate from "./pages/ProductCreate.jsx";
 import Catalog from "./pages/Catalog.jsx";
 import ProductDetails from "./pages/ProductDetails.jsx";
 import BrandOrders from "./pages/BrandOrders.jsx";
-
-/** You said these are already created */
 import CartPage from "./pages/CartPage.jsx";
 import CheckoutPage from "./pages/CheckoutPage.jsx";
-
-/** New: My Orders page */
 import MyOrders from "./pages/MyOrders.jsx";
+
+// NEW
+import ChatSupport from "./components/ChatSupport.jsx";
+
+// ✅ Missing imports added
+import AdminSupportRequests from "./pages/AdminSupportRequests.jsx";
+import SupportChat from "./pages/SupportChat.jsx";
 
 export default function App() {
   return (
     <Router>
       <Navbar />
+
+      {/* Always present chat support */}
+      <ChatSupport />
+
       <Routes>
         <Route path="/" element={<Home />} />
-
-        {/* Public catalog + product page */}
         <Route path="/catalog" element={<Catalog />} />
         <Route path="/p/:id" element={<ProductDetails />} />
-
-        {/* Cart & Checkout */}
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
-
-        {/* Auth */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
 
-        {/* Protected */}
         <Route
           path="/dashboard"
           element={
@@ -64,7 +64,36 @@ export default function App() {
           }
         />
 
-        {/* New: My Orders (protected) */}
+        {/* ✅ Admin: list & accept support requests */}
+        <Route
+          path="/admin/support-requests"
+          element={
+            <AdminRoute>
+              <AdminSupportRequests />
+            </AdminRoute>
+          }
+        />
+
+        {/* ✅ Admin: chat view */}
+        <Route
+          path="/admin/support/chat/:requestId"
+          element={
+            <AdminRoute>
+              <SupportChat />
+            </AdminRoute>
+          }
+        />
+
+        {/* ✅ User: chat view (when escalated & accepted) */}
+        <Route
+          path="/support/chat/:requestId"
+          element={
+            <PrivateRoute>
+              <SupportChat />
+            </PrivateRoute>
+          }
+        />
+
         <Route
           path="/orders"
           element={
@@ -109,7 +138,6 @@ export default function App() {
           }
         />
 
-        {/* Admin */}
         <Route
           path="/admin"
           element={

@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { STORE_API_BASE } from "../config";
 
@@ -25,39 +25,43 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async (signal) => {
     try {
       setLoading(true);
       setErr("");
 
-      const r1 = await fetch(`${STORE_API_BASE}/products/random`);
-      if (!r1.ok) throw new Error("Failed to load a recommendation");
-      const heroItem = await r1.json();
+      const [r1, r5] = await Promise.all([
+        fetch(`${STORE_API_BASE}/products/random`, { signal }),
+        fetch(`${STORE_API_BASE}/products/random5`, { signal }),
+      ]);
 
-      const r5 = await fetch(`${STORE_API_BASE}/products/random5`);
+      if (!r1.ok) throw new Error("Failed to load a recommendation");
       if (!r5.ok) throw new Error("Failed to load more recommendations");
-      const list = await r5.json();
+
+      const [heroItem, list] = await Promise.all([r1.json(), r5.json()]);
 
       const filtered = Array.isArray(list)
-        ? list.filter((p) => p.id !== heroItem.id).slice(0, 5)
+        ? list.filter((p) => p?.id !== heroItem?.id).slice(0, 5)
         : [];
 
-      setHero(heroItem);
+      setHero(heroItem ?? null);
       setRecs(filtered);
     } catch (e) {
-      setErr(e.message || "Failed to load recommendations");
+      if (e?.name === "AbortError") return; // ignore StrictMode aborts
+      setErr(e?.message || "Failed to load recommendations");
       setHero(null);
       setRecs([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     document.title = "Dashboard - Spark";
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const ac = new AbortController();
+    load(ac.signal);
+    return () => ac.abort(); // dev StrictMode: abort first mount’s fetch
+  }, [load]);
 
   const heroImg = useMemo(() => pickCover(hero?.photos), [hero]);
   const tiles = useMemo(
@@ -70,7 +74,11 @@ export default function Dashboard() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ margin: 0 }}>Welcome back 👋</h2>
         <button
-          onClick={load}
+          onClick={() => {
+            const ac = new AbortController();
+            load(ac.signal);
+            // no need to keep a ref; this is a one-off action
+          }}
           style={{
             padding: "8px 12px",
             borderRadius: 8,
@@ -133,7 +141,7 @@ export default function Dashboard() {
           to={productLink(hero)}
           style={{
             display: "grid",
-            gridTemplateColumns: "0.3fr 0.8fr", // tighter ratio
+            gridTemplateColumns: "0.3fr 0.8fr",
             gap: 16,
             marginTop: 16,
             textDecoration: "none",
@@ -148,7 +156,7 @@ export default function Dashboard() {
           <div
             style={{
               position: "relative",
-              minHeight: 200, // was 260
+              minHeight: 200,
               background: "#f3f4f6",
               display: "flex",
               alignItems: "center",
